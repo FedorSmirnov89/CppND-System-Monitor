@@ -22,3 +22,10 @@ debug:
 .PHONY: clean
 clean:
 	rm -rf build
+
+
+.PHONY: test
+test:
+	make build
+	./build/test
+	
