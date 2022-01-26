@@ -4,8 +4,28 @@
 #include <fstream>
 #include <regex>
 #include <string>
+#include <vector>
+
+
+using std::string;
+using std::vector;
 
 namespace LinuxParser {
+
+// Util functions
+string getValueForKey(string filePath, string searchKey, vector<char> replace);
+int getIntValueForKey(string filePath, string searchKey, vector<char> replace);
+int intFromString(string string);
+
+// Line keys
+const string keyOs = "PRETTY_NAME";
+const string keyTotalProcesses = "processes";
+const string keyRunningProcesses = "procs_running";
+const string keyMemTotal = "MemTotal:";
+const string keyMemFree = "MemFree:";
+const string keyRamKb = "VmSize:";
+const string keyUId = "Uid:";
+
 // Paths
 const std::string kProcDirectory{"/proc/"};
 const std::string kCmdlineFilename{"/cmdline"};
@@ -52,6 +72,51 @@ std::string Ram(int pid);
 std::string Uid(int pid);
 std::string User(int pid);
 long int UpTime(int pid);
+
 };  // namespace LinuxParser
+
+class ProcessData {
+ public:
+  ProcessData(int pid);
+
+  string getRam() const;
+  string getUId() const;
+  long getUpTime() const;
+  string getCommand() const;
+  string getUser() const;
+
+ private:
+  string readRam(int pid);
+  string readUId(int pid);
+  long readUpTime(int pid);
+
+  string ram;
+  string uId;
+  long upTime;
+  string command;
+  string user;
+};
+
+class CpuUtil {
+ public:
+  CpuUtil(vector<string> cpuStrings);
+
+  long getUser();
+  long getNice();
+  long getSystem();
+  long getIdle();
+  long getIoWait();
+  long getIrq();
+  long getSoftIrq();
+
+ private:
+  long user;
+  long nice;
+  long system;
+  long idle;
+  long ioWait;
+  long irq;
+  long softirq;
+};
 
 #endif
