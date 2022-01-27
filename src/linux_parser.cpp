@@ -3,25 +3,86 @@
 #include <dirent.h>
 #include <unistd.h>
 
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <iostream>
 
+using std::cout;
 using std::stof;
 using std::string;
 using std::to_string;
 using std::vector;
-using std::cout;
 
 ProcessData::ProcessData(int pid) {
   ram = readRam(pid);
   uId = readUId(pid);
   upTime = readUpTime(pid);
+  command = readCommand(pid);
+  user = readUserName(uId);
+  readJiffies(pid, userJiffies, kernelJiffies);
+}
 
-  // TODO
-  command = "fork";
-  user = "me";
+void ProcessData::readJiffies(int pid, long& userJiffies, long& kernelJiffies) {
+  string filePath = LinuxParser::kProcDirectory + std::to_string(pid) +
+                    LinuxParser::kStatFilename;
+  string line;
+  string placeholder;
+  string userStr;
+  string kernelStr;
+
+  std::ifstream fileStream(filePath);
+  if (fileStream.is_open()) {
+    while (std::getline(fileStream, line)) {
+      std::istringstream linestream(line);
+      for (int i = 1; i < 16; i++) {
+        if (i == 14) {
+          linestream >> userStr;
+        } else if (i == 15) {
+          linestream >> kernelStr;
+          userJiffies = LinuxParser::intFromString(userStr);
+          kernelJiffies = LinuxParser::intFromString(kernelStr);
+          return;
+        } else {
+          linestream >> placeholder;
+        }
+      }
+    }
+  }
+}
+
+string ProcessData::readUserName(string uId) {
+  string line;
+  string userName;
+  string passwd;
+  string userId;
+
+  std::ifstream fileStream(LinuxParser::kPasswordPath);
+  if (fileStream.is_open()) {
+    while (std::getline(fileStream, line)) {
+      std::replace(line.begin(), line.end(), ':', ' ');
+      std::istringstream linestream(line);
+      while (linestream >> userName >> passwd >> userId) {
+        if (userId == uId) {
+          return userName;
+        }
+      }
+    }
+  }
+  return userName;
+}
+
+string ProcessData::readCommand(int pid) {
+  string filePath = LinuxParser::kProcDirectory + std::to_string(pid) +
+                    LinuxParser::kCmdlineFilename;
+  string line;
+  std::ifstream fileStream(filePath);
+  if (fileStream.is_open()) {
+    if (std::getline(fileStream, line)) {
+      return line;
+    }
+  }
+  return line;
 }
 
 long ProcessData::readUpTime(int pid) {
@@ -68,6 +129,8 @@ string ProcessData::getRam() const { return ram; };
 string ProcessData::getUId() const { return uId; };
 long ProcessData::getUpTime() const { return upTime; };
 string ProcessData::getUser() const { return user; };
+long ProcessData::getUserJiffies() const { return userJiffies; };
+long ProcessData::getKernelJiffies() const { return kernelJiffies; };
 
 CpuUtil::CpuUtil(vector<string> cpuStrings) {
   user = LinuxParser::intFromString(cpuStrings[0]);
@@ -206,9 +269,10 @@ long LinuxParser::Jiffies() {
          util.getIoWait();
 }
 
-// TODO: Read and return the number of active jiffies for a PID
-// REMOVE: [[maybe_unused]] once you define the function
-long LinuxParser::ActiveJiffies(int pid [[maybe_unused]]) { return 0; }
+long LinuxParser::ActiveJiffies(int pid) {
+  ProcessData data = ProcessData{pid};
+  return data.getUserJiffies() + data.getKernelJiffies();
+}
 
 long LinuxParser::ActiveJiffies() {
   auto util = CpuUtil(CpuUtilization());
@@ -255,22 +319,12 @@ int LinuxParser::RunningProcesses() {
                            vector<char>{});
 }
 
-// TODO: Read and return the command associated with a process
-// REMOVE: [[maybe_unused]] once you define the function
-string LinuxParser::Command(int pid [[maybe_unused]]) { return string(); }
+string LinuxParser::Command(int pid) { return ProcessData{pid}.getCommand(); }
 
-// TODO: Read and return the memory used by a process
-// REMOVE: [[maybe_unused]] once you define the function
-string LinuxParser::Ram(int pid [[maybe_unused]]) { return string(); }
+string LinuxParser::Ram(int pid) { return ProcessData{pid}.getRam(); }
 
-// TODO: Read and return the user ID associated with a process
-// REMOVE: [[maybe_unused]] once you define the function
-string LinuxParser::Uid(int pid [[maybe_unused]]) { return string(); }
+string LinuxParser::Uid(int pid) { return ProcessData{pid}.getUId(); }
 
-// TODO: Read and return the user associated with a process
-// REMOVE: [[maybe_unused]] once you define the function
-string LinuxParser::User(int pid [[maybe_unused]]) { return string(); }
+string LinuxParser::User(int pid) { return ProcessData{pid}.getUser(); }
 
-// TODO: Read and return the uptime of a process
-// REMOVE: [[maybe_unused]] once you define the function
-long LinuxParser::UpTime(int pid [[maybe_unused]]) { return 0; }
+long LinuxParser::UpTime(int pid) { return ProcessData{pid}.getUpTime(); }

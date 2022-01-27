@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 
-
 using std::string;
 using std::vector;
 
@@ -84,17 +83,25 @@ class ProcessData {
   long getUpTime() const;
   string getCommand() const;
   string getUser() const;
+  long getUserJiffies() const;
+  long getKernelJiffies() const;
 
  private:
   string readRam(int pid);
   string readUId(int pid);
   long readUpTime(int pid);
+  string readCommand(int pid);
+  string readUserName(string uId);
+  void readJiffies(int pid, long& userJiffies, long& kernelJiffies);
 
   string ram;
   string uId;
   long upTime;
   string command;
   string user;
+
+  long userJiffies;
+  long kernelJiffies;
 };
 
 class CpuUtil {

@@ -38,8 +38,12 @@ void testParser() {
 
   cout << "pwd: " << tmp << "\n";
 
-  ProcessData data1 = ProcessData{1};
+  ProcessData data1 = ProcessData{3021};
   cout << "ram in MB " << data1.getRam() << "\n";
   cout << "UID " << data1.getUId() << "\n";
   cout << "Up time in seconds " << data1.getUpTime() << "\n";
+  cout << "Command: " << data1.getCommand() << "\n";
+  cout << "User Name: " << data1.getUser() << "\n";
+  cout << "User Jiffies: " << data1.getUserJiffies() << "\n";
+  cout << "Kernel Jiffies: " << data1.getKernelJiffies() << "\n";
 }
