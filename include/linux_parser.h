@@ -11,10 +11,37 @@ using std::vector;
 
 namespace LinuxParser {
 
+struct ProcessUtilData {
+ public:
+  const long int userTicks;
+  const long int kernelTicks;
+  const long int userTicksChildren;
+  const long int kernelTicksChildren;
+  const long int startTime;
+
+  ProcessUtilData(long int userTicks, long int kernelTicks,
+                  long int userTicksChildren, long int kernelTicksChildren,
+                  long int startTime)
+      : userTicks(userTicks),
+        kernelTicks(kernelTicks),
+        userTicksChildren(userTicksChildren),
+        kernelTicksChildren(kernelTicksChildren),
+        startTime(startTime) {}
+};
+
 // Util functions
 string getValueForKey(string filePath, string searchKey, vector<char> replace);
 int getIntValueForKey(string filePath, string searchKey, vector<char> replace);
 int intFromString(string string);
+
+// Attribute read functions
+string readRam(int pid);
+string readCommand(int pid);
+long int readUpTime(int pid);
+string readUserId(int pid);
+string readUserName(int pid);
+float readCpuUtilization(int pid);
+ProcessUtilData readUtilData(int pid);
 
 // Line keys
 const string keyOs = "PRETTY_NAME";
@@ -73,57 +100,5 @@ std::string User(int pid);
 long int UpTime(int pid);
 
 };  // namespace LinuxParser
-
-class ProcessData {
- public:
-  ProcessData(int pid);
-
-  string getRam() const;
-  string getUId() const;
-  long getUpTime() const;
-  string getCommand() const;
-  string getUser() const;
-  long getUserJiffies() const;
-  long getKernelJiffies() const;
-
- private:
-  string readRam(int pid);
-  string readUId(int pid);
-  long readUpTime(int pid);
-  string readCommand(int pid);
-  string readUserName(string uId);
-  void readJiffies(int pid, long& userJiffies, long& kernelJiffies);
-
-  string ram;
-  string uId;
-  long upTime;
-  string command;
-  string user;
-
-  long userJiffies;
-  long kernelJiffies;
-};
-
-class CpuUtil {
- public:
-  CpuUtil(vector<string> cpuStrings);
-
-  long getUser();
-  long getNice();
-  long getSystem();
-  long getIdle();
-  long getIoWait();
-  long getIrq();
-  long getSoftIrq();
-
- private:
-  long user;
-  long nice;
-  long system;
-  long idle;
-  long ioWait;
-  long irq;
-  long softirq;
-};
 
 #endif

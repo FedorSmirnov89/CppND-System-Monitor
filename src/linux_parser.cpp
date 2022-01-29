@@ -14,50 +14,62 @@ using std::string;
 using std::to_string;
 using std::vector;
 
-ProcessData::ProcessData(int pid) {
-  ram = readRam(pid);
-  uId = readUId(pid);
-  upTime = readUpTime(pid);
-  command = readCommand(pid);
-  user = readUserName(uId);
-  readJiffies(pid, userJiffies, kernelJiffies);
+string LinuxParser::readRam(int pid) {
+  string filePath = kProcDirectory + std::to_string(pid) + kStatusFilename;
+  string ramKbS = getValueForKey(filePath, keyRamKb, vector<char>{});
+  int ramKbI = intFromString(ramKbS);
+  float ramMbF = 1.0 * ramKbI / 1000;
+  char buffer[50];
+  sprintf(buffer, "%0.2lf", ramMbF);
+  return string(buffer);
 }
 
-void ProcessData::readJiffies(int pid, long& userJiffies, long& kernelJiffies) {
-  string filePath = LinuxParser::kProcDirectory + std::to_string(pid) +
-                    LinuxParser::kStatFilename;
+string LinuxParser::readCommand(int pid) {
+  string filePath = kProcDirectory + std::to_string(pid) + kCmdlineFilename;
+  string line;
+  std::ifstream fileStream(filePath);
+  if (fileStream.is_open()) {
+    if (std::getline(fileStream, line)) {
+      return line;
+    }
+  }
+  return line;
+}
+
+long int LinuxParser::readUpTime(int pid) {
+  string filePath = kProcDirectory + std::to_string(pid) + kStatFilename;
   string line;
   string placeholder;
-  string userStr;
-  string kernelStr;
+  string upTimeS;
 
   std::ifstream fileStream(filePath);
   if (fileStream.is_open()) {
     while (std::getline(fileStream, line)) {
       std::istringstream linestream(line);
-      for (int i = 1; i < 16; i++) {
-        if (i == 14) {
-          linestream >> userStr;
-        } else if (i == 15) {
-          linestream >> kernelStr;
-          userJiffies = LinuxParser::intFromString(userStr);
-          kernelJiffies = LinuxParser::intFromString(kernelStr);
-          return;
-        } else {
-          linestream >> placeholder;
-        }
+      for (int i = 0; i < 21; i++) {
+        linestream >> placeholder;
       }
+      linestream >> upTimeS;
+      int upTimeI = intFromString(upTimeS);
+      return upTimeI / sysconf(_SC_CLK_TCK);
     }
   }
+  return -1;
 }
 
-string ProcessData::readUserName(string uId) {
+string LinuxParser::readUserId(int pid) {
+  string filePath = kProcDirectory + std::to_string(pid) + kStatusFilename;
+  return getValueForKey(filePath, keyUId, vector<char>{});
+}
+
+string LinuxParser::readUserName(int pid) {
   string line;
   string userName;
   string passwd;
   string userId;
+  string uId = readUserId(pid);
 
-  std::ifstream fileStream(LinuxParser::kPasswordPath);
+  std::ifstream fileStream(kPasswordPath);
   if (fileStream.is_open()) {
     while (std::getline(fileStream, line)) {
       std::replace(line.begin(), line.end(), ':', ' ');
@@ -72,83 +84,60 @@ string ProcessData::readUserName(string uId) {
   return userName;
 }
 
-string ProcessData::readCommand(int pid) {
-  string filePath = LinuxParser::kProcDirectory + std::to_string(pid) +
-                    LinuxParser::kCmdlineFilename;
+LinuxParser::ProcessUtilData LinuxParser::readUtilData(int pid) {
+  string filePath = kProcDirectory + std::to_string(pid) + kStatFilename;
   string line;
+  string placeholder;
+  string userStr;
+  string kernelStr;
+  string userTicksChildren;
+  string kernelTicksChildred;
+  string startTime;
+
   std::ifstream fileStream(filePath);
   if (fileStream.is_open()) {
     if (std::getline(fileStream, line)) {
-      return line;
-    }
-  }
-  return line;
-}
-
-long ProcessData::readUpTime(int pid) {
-  string filePath = LinuxParser::kProcDirectory + std::to_string(pid) +
-                    LinuxParser::kStatFilename;
-  string line;
-  string placeholder;
-  string upTimeS;
-
-  std::ifstream fileStream(filePath);
-  if (fileStream.is_open()) {
-    while (std::getline(fileStream, line)) {
       std::istringstream linestream(line);
-      for (int i = 0; i < 21; i++) {
-        linestream >> placeholder;
+      for (int i = 1; i < 23; i++) {
+        switch (i) {
+          case 14:
+            linestream >> userStr;
+            break;
+          case 15:
+            linestream >> kernelStr;
+            break;
+          case 16:
+            linestream >> userTicksChildren;
+            break;
+          case 17:
+            linestream >> kernelTicksChildred;
+            break;
+          case 22:
+            linestream >> startTime;
+            break;
+          default:
+            linestream >> placeholder;
+            break;
+        }
       }
-      linestream >> upTimeS;
-      int upTimeI = LinuxParser::intFromString(upTimeS);
-      return upTimeI / sysconf(_SC_CLK_TCK);
     }
   }
-  return -1;
+  return LinuxParser::ProcessUtilData{
+      intFromString(userStr), intFromString(kernelStr),
+      intFromString(userTicksChildren), intFromString(kernelTicksChildred),
+      intFromString(startTime)};
 }
 
-string ProcessData::readUId(int pid) {
-  string filePath = LinuxParser::kProcDirectory + std::to_string(pid) +
-                    LinuxParser::kStatusFilename;
-  return LinuxParser::getValueForKey(filePath, LinuxParser::keyUId,
-                                     vector<char>{});
+float LinuxParser::readCpuUtilization(int pid) {
+  int upTime = UpTime();
+  LinuxParser::ProcessUtilData pData = readUtilData(pid);
+
+  long int hertz = sysconf(_SC_CLK_TCK);
+  long int totalTime = pData.userTicks + pData.kernelTicks +
+                       pData.userTicksChildren + pData.kernelTicksChildren;
+  float seconds = upTime - (1.0 * pData.startTime / hertz);
+  return ((1.0 * totalTime / hertz) / seconds);
 }
-
-string ProcessData::readRam(int pid) {
-  string filePath = LinuxParser::kProcDirectory + std::to_string(pid) +
-                    LinuxParser::kStatusFilename;
-  string ramKbS = LinuxParser::getValueForKey(filePath, LinuxParser::keyRamKb,
-                                              vector<char>{});
-  int ramKbI = LinuxParser::intFromString(ramKbS);
-  float ramMbF = 1.0 * ramKbI / 1000;
-  return std::to_string(ramMbF);
-}
-
-string ProcessData::getCommand() const { return command; };
-string ProcessData::getRam() const { return ram; };
-string ProcessData::getUId() const { return uId; };
-long ProcessData::getUpTime() const { return upTime; };
-string ProcessData::getUser() const { return user; };
-long ProcessData::getUserJiffies() const { return userJiffies; };
-long ProcessData::getKernelJiffies() const { return kernelJiffies; };
-
-CpuUtil::CpuUtil(vector<string> cpuStrings) {
-  user = LinuxParser::intFromString(cpuStrings[0]);
-  nice = LinuxParser::intFromString(cpuStrings[1]);
-  system = LinuxParser::intFromString(cpuStrings[2]);
-  idle = LinuxParser::intFromString(cpuStrings[3]);
-  ioWait = LinuxParser::intFromString(cpuStrings[4]);
-  irq = LinuxParser::intFromString(cpuStrings[5]);
-  softirq = LinuxParser::intFromString(cpuStrings[6]);
-}
-
-long CpuUtil::getUser() { return user; }
-long CpuUtil::getNice() { return nice; }
-long CpuUtil::getSystem() { return system; }
-long CpuUtil::getIdle() { return idle; }
-long CpuUtil::getIoWait() { return ioWait; }
-long CpuUtil::getIrq() { return irq; }
-long CpuUtil::getSoftIrq() { return softirq; }
 
 // INPUT:
 //  filepath - the file to the file to read
@@ -263,24 +252,6 @@ long LinuxParser::UpTime() {
   return uptime;
 }
 
-long LinuxParser::Jiffies() {
-  auto util = CpuUtil(CpuUtilization());
-  return util.getUser() + util.getNice() + util.getSystem() + util.getIdle() +
-         util.getIoWait();
-}
-
-long LinuxParser::ActiveJiffies(int pid) {
-  ProcessData data = ProcessData{pid};
-  return data.getUserJiffies() + data.getKernelJiffies();
-}
-
-long LinuxParser::ActiveJiffies() {
-  auto util = CpuUtil(CpuUtilization());
-  return util.getUser() + util.getNice() + util.getSystem();
-}
-
-long LinuxParser::IdleJiffies() { return CpuUtil{CpuUtilization()}.getIdle(); }
-
 vector<string> LinuxParser::CpuUtilization() {
   string user;
   string nice;
@@ -289,6 +260,7 @@ vector<string> LinuxParser::CpuUtilization() {
   string ioWait;
   string irq;
   string softirq;
+  string steal;
 
   string key;
   string line;
@@ -300,8 +272,9 @@ vector<string> LinuxParser::CpuUtilization() {
       while (linestream >> key) {
         if (key == "cpu") {
           linestream >> user >> nice >> system >> idle >> ioWait >> irq >>
-              softirq;
-          return vector<string>{user, nice, system, idle, ioWait, irq, softirq};
+              softirq >> steal;
+          return vector<string>{user,   nice, system,  idle,
+                                ioWait, irq,  softirq, steal};
         }
       }
     }
@@ -318,13 +291,3 @@ int LinuxParser::RunningProcesses() {
   return getIntValueForKey(kProcDirectory + kStatFilename, keyRunningProcesses,
                            vector<char>{});
 }
-
-string LinuxParser::Command(int pid) { return ProcessData{pid}.getCommand(); }
-
-string LinuxParser::Ram(int pid) { return ProcessData{pid}.getRam(); }
-
-string LinuxParser::Uid(int pid) { return ProcessData{pid}.getUId(); }
-
-string LinuxParser::User(int pid) { return ProcessData{pid}.getUser(); }
-
-long LinuxParser::UpTime(int pid) { return ProcessData{pid}.getUpTime(); }
