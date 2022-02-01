@@ -18,7 +18,7 @@ Process::Process(int pid) {
   this->pid = pid;
   ram = LinuxParser::readRam(pid);
   command = LinuxParser::readCommand(pid);
-  upTime = LinuxParser::readUpTime(pid);
+  upTime = LinuxParser::UpTime() - LinuxParser::readUpTime(pid);
   user = LinuxParser::readUserName(pid);
   cpuUtilization = LinuxParser::readCpuUtilization(pid);
 }

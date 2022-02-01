@@ -142,20 +142,10 @@ float LinuxParser::readCpuUtilization(int pid) {
   float result = ((1.0 * totalTime / hertz) / seconds);
 
   if (result < 0.0) {
-    cout << "Negative util";
     throw "negative util";
   }
 
   if (result > 1.0) {
-    cout << "pid: " << pid << "\n";
-    cout << "invalid util " << result << "\n";
-    cout << "hertz: " << hertz << "\n";
-    cout << "upTime: " << upTime << "\n";
-    cout << "startTime: " << pData.startTime << "\n";
-    cout << "totalTime: " << totalTime << "\n";
-    cout << "seconds: " << seconds << "\n";
-    cout << "result: " << result << "\n";
-    cout << "Overutilized\n";
     throw "Overutilization";
   }
   return result;
