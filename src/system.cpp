@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include <cstddef>
+#include <iostream>
 #include <set>
 #include <string>
 #include <vector>
@@ -11,6 +12,7 @@
 #include "process.h"
 #include "processor.h"
 
+using std::cout;
 using std::set;
 using std::size_t;
 using std::sort;
@@ -26,18 +28,18 @@ format. cpp for formatting the uptime.*/
 System::System() {
   cpu_ = Processor();
   processes_ = {};
-  for (int pid : LinuxParser::Pids()) {
-    processes_.push_back(Process(pid));
-  }
-  sort(processes_.begin(), processes_.end());
 }
 
 Processor& System::Cpu() { return cpu_; }
 
 vector<Process>& System::Processes() {
-  processes_ = {};
+  processes_.clear();
+
   for (int pid : LinuxParser::Pids()) {
-    processes_.push_back(Process(pid));
+    Process proc = Process(pid);
+    if (proc.CpuUtilization() > 0) {
+      processes_.push_back(Process(pid));
+    }
   }
   sort(processes_.begin(), processes_.end());
   return processes_;

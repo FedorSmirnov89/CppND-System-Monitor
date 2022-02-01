@@ -3,6 +3,7 @@
 #include <curses.h>
 
 #include <chrono>
+#include <iostream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -10,6 +11,7 @@
 #include "format.h"
 #include "system.h"
 
+using std::cout;
 using std::string;
 using std::to_string;
 
